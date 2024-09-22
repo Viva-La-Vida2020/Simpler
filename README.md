@@ -19,7 +19,11 @@ pip install -r requirements.txt
 ```bash
 python main.py --train --dataset Math23k --similarity TLWD 
 ```
-
+### Training LLM with Simpler
+```bash
+cd ./LLM_Simpler
+python train_llm_cl.py
+```
 ### Loading Pretrained Weights
 Download pretrained Math23k sota ckpt from https://drive.google.com/file/d/1QuqAWW29Ael18wVeppgQ_XomrLdTgPuA/view?usp=sharing
 ```bash
