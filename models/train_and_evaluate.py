@@ -182,25 +182,23 @@ class Similarity(nn.Module):
         return self.cos(x, y) / self.temp
 
 
-def cl_loss(s1, s2, s3, temp=0.05):
-    sim = Similarity(temp)
-    s1_s2_cos = sim(s1.unsqueeze(1), s2.unsqueeze(0))
-    s1_s3_cos = sim(s1.unsqueeze(1), s3.unsqueeze(0))
-    # print(s1_s2_cos.shape)
-    # print(s1_s3_cos.shape)
-    cos_sim = torch.cat([s1_s2_cos, s1_s3_cos], 1)
-    # cos_sim = torch.cat([s1_s2_cos, s1_s3_cos])
-    labels = torch.arange(cos_sim.size(0)).long().to(s1.device)
-    loss_fct = nn.CrossEntropyLoss()
-    loss = loss_fct(cos_sim, labels)
-    return loss
-
-
-def cl_loss2(features, score):
+def cl_simpler(features, score):
     criterion = SupConLoss.SupConLoss()
-
     loss = criterion(features, mask=torch.from_numpy(score).to(features.device))
+
     return loss
+
+
+def cl_simclr(features, temperature=0.07):
+    batch_size = features.size(0)
+    features = F.normalize(features, p=2, dim=1)
+    sim_matrix = torch.matmul(features, features.T)
+    labels = torch.arange(batch_size).cuda()
+    logits = sim_matrix / temperature
+    loss = F.cross_entropy(logits, labels)
+
+    return loss
+
 
 
 def train_tree(args, solver, encoded, text_ids, text_pads, num_ids, num_pads, equ_ids, equ_pads,
@@ -272,39 +270,39 @@ def train_tree(args, solver, encoded, text_ids, text_pads, num_ids, num_pads, eq
 
     features = solver.Subspace(problem_output)
 
-    if args.similarity == 'TLWD':
-        scores = tlwd_score_multiview(prefix) # TLWD Metric
-    else:
-        scores =ted_score_multiview(prefix, root_nodes, longest_view)  # TED Metric
-    
     loss_cl = 0
-    if args.H:
-        loss_c1 = cl_loss2(torch.unsqueeze(features[:, 0, :], 1), scores[:, 0, :])
-    else:
-        loss_c1 = 0
-    if args.P:
-        loss_c2 = cl_loss2(torch.unsqueeze(features[:, 0, :], 1), scores[:, 1, :])
-    else:
-        loss_c2 = 0
-    if args.L:
-        loss_c3 = cl_loss2(torch.unsqueeze(features[:, 0, :], 1), scores[:, 2, :])
-    else:
-        loss_c3 = 0
+    if args.CL == 'SimplerCL':
+        if args.similarity == 'TLWD':
+            scores = tlwd_score_multiview(prefix)  # TLWD Metric
+        elif args.similarity == 'TED':
+            scores = ted_score_multiview(prefix, root_nodes, longest_view)  # TED Metric
 
-    loss_cl = loss_c1 + loss_c2 + loss_c3
+        if args.H:
+            loss_c1 = cl_simpler(torch.unsqueeze(features[:, 0, :], 1), scores[:, 0, :])
+        else:
+            loss_c1 = 0
+        if args.P:
+            loss_c2 = cl_simpler(torch.unsqueeze(features[:, 0, :], 1), scores[:, 1, :])
+        else:
+            loss_c2 = 0
+        if args.L:
+            loss_c3 = cl_simpler(torch.unsqueeze(features[:, 0, :], 1), scores[:, 2, :])
+        else:
+            loss_c3 = 0
+        loss_cl = loss_c1 + loss_c2 + loss_c3
+    elif args.CL == 'SimCLR':
+        loss_cl = cl_simclr(problem_output)
+    elif args.CL == 'NoCL':
+        loss_cl = loss_cl
 
     return loss1, loss_cl
 
 
 def gather_logits_labels(logits, labels, equ_pads):
-    # print(labels.shape)
     mask = (equ_pads).float()
     new_logits = logits.clone()  # Create a copy to avoid in-place modification
-    # print(new_logits.shape)
-    # labels[labels == -100] = 0
     output = torch.gather(new_logits, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)
     output = output * mask  # B * L
-    # print(output.shape)
     return output
 
 
