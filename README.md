@@ -15,14 +15,13 @@ conda activate simpler
 cd PROJECT_ROOT_PATH
 pip install -r requirements.txt
 ```
-### Training from Scratch
+### Training Encoder-Decoder Model from Scratch
 ```bash
-python main.py --train --dataset Math23k --similarity TLWD 
+python train_encoder_decoder_cl.py --train --dataset Math23k --CL SimplerCL --similarity TLWD 
 ```
-### Training LLM with Simpler
+### Training Decoder-only Model from Scratch
 ```bash
-cd ./LLM_Simpler
-python train_llm_cl.py
+python train_decoder_only_cl.py --train --CL SimplerCL --similarity TLWD 
 ```
 ### Loading Pretrained Weights
 Download pretrained Math23k sota ckpt from https://drive.google.com/file/d/1QuqAWW29Ael18wVeppgQ_XomrLdTgPuA/view?usp=sharing

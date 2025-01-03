@@ -191,8 +191,9 @@ def train_simpler_cl(args):
     # train
     solver.zero_grad()
 
-
-    save_dir = os.path.join(args.save, f'{args.dataset}_{args.similarity}')
+    if not os.path.exists(args.save):
+        os.mkdir(args.save)
+    save_dir = os.path.join(args.save, f'{args.dataset}_GTS_{args.similarity}')
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
     # criterion = SupConLoss.SupConLoss()
